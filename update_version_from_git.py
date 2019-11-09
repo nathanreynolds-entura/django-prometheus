@@ -57,7 +57,7 @@ def migrate_version(target_file, new_version):
 def is_master_branch():
     cmd = "git rev-parse --abbrev-ref HEAD"
     tag_branch = subprocess.check_output(cmd, shell=True)
-    return tag_branch in [b"master\n"]
+    return tag_branch in [b"master\n", b"verbump\n"]
 
 
 def git_tag_name():
