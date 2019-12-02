@@ -44,7 +44,8 @@ def SetupPrometheusEndpointOnPort(port, addr=""):
         "autoreloader is active. Use the URL exporter, or start django "
         "with --noreload. See documentation/exports.md."
     )
-    prometheus_client.start_http_server(port, addr=addr)
+    registry = _get_registry()
+    prometheus_client.start_http_server(port, addr=addr, registry=registry)
 
 
 class PrometheusEndpointServer(threading.Thread):
@@ -83,9 +84,10 @@ def SetupPrometheusEndpointOnPortRange(port_range, addr=""):
         "autoreloader is active. Use the URL exporter, or start django "
         "with --noreload. See documentation/exports.md."
     )
+    registry = _get_registry()
     for port in port_range:
         try:
-            httpd = HTTPServer((addr, port), prometheus_client.MetricsHandler)
+            httpd = HTTPServer((addr, port), prometheus_client.MetricsHandler.factory(registry))
         except (OSError, socket.error):
             # Python 2 raises socket.error, in Python 3 socket.error is an
             # alias for OSError
@@ -117,12 +119,17 @@ def ExportToDjangoView(request):
 
     You can use django_prometheus.urls to map /metrics to this view.
     """
-    if "prometheus_multiproc_dir" in os.environ:
-        registry = prometheus_client.CollectorRegistry()
-        multiprocess.MultiProcessCollector(registry)
-    else:
-        registry = prometheus_client.REGISTRY
+    registry = _get_registry()
     metrics_page = prometheus_client.generate_latest(registry)
     return HttpResponse(
         metrics_page, content_type=prometheus_client.CONTENT_TYPE_LATEST
     )
+
+
+def _get_registry():
+    if 'prometheus_multiproc_dir' in os.environ:
+        registry = prometheus_client.CollectorRegistry()
+        multiprocess.MultiProcessCollector(registry)
+    else:
+        registry = prometheus_client.REGISTRY
+    return registry
